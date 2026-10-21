@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,7 +68,8 @@ class Item:
     sql: bool = False
 
 
-def build(project: str, scan: dict | None, advisors: list | None, rls: dict | None) -> str:
+def build(project: str, scan: dict | None, advisors: list | None, rls: dict | None,
+          two_tenant: str | None = None) -> str:
     items = _from_scan(scan) + _from_advisors(advisors) + _from_rlsgrid(rls)
     items.sort(key=lambda i: (RANK[i.severity], i.source, i.where))
     counts = Counter(i.severity for i in items)
@@ -93,11 +95,17 @@ def build(project: str, scan: dict | None, advisors: list | None, rls: dict | No
                        f"{rls.get('skipped', 0)} of {rls.get('iterations', 0)} probes skipped")
         if not _untested(rls):
             not_checked = [n for n in not_checked if not n.startswith("Whether user A")]
+    if two_tenant:
+        checked.append("Two-tenant test by hand on a local copy (delivery/two-tenant-test.sql): see the section below")
+        not_checked = [n for n in not_checked if not n.startswith("Whether user A")]
 
     template = Template((Path(__file__).with_name("report.md")).read_text(encoding="utf-8"))
-    return template.safe_substitute(
+    text = template.safe_substitute(
         project=project, date=datetime.date.today().isoformat(), summary=summary, blast=blast, table=table,
         details=details, checked=_bullets(checked) or "Nothing.", not_checked=_bullets(not_checked) or "Nothing listed.")
+    if two_tenant:  # the hand-test results go right after "What was checked"
+        text = text.replace("## What was not checked", f"## Two-tenant test\n\n{two_tenant.strip()}\n\n## What was not checked")
+    return re.sub(r"\n{3,}", "\n\n", text)
 
 
 def load_json(path: str | None):

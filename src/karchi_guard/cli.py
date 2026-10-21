@@ -23,14 +23,17 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--scan", help="output of: karchi-guard scan --json")
     r.add_argument("--advisors", help="output of: supabase db advisors --type security --output-format json")
     r.add_argument("--rlsgrid", help="output of: rlsgrid check --json (run on a local copy only)")
+    r.add_argument("--two-tenant", help="Markdown file with the results of delivery/two-tenant-test.sql (when rlsgrid cannot test the schema)")
     r.add_argument("--project", default="your project", help="name shown at the top of the report")
     r.add_argument("--out", help="write the report here instead of printing it")
 
     args = parser.parse_args(argv)
     if args.command == "report":
-        if not (args.scan or args.advisors or args.rlsgrid):
-            parser.error("report needs at least one of --scan, --advisors, --rlsgrid")
-        text = report.build(args.project, report.load_json(args.scan), report.load_json(args.advisors), report.load_json(args.rlsgrid))
+        if not (args.scan or args.advisors or args.rlsgrid or args.two_tenant):
+            parser.error("report needs at least one of --scan, --advisors, --rlsgrid, --two-tenant")
+        two_tenant = Path(args.two_tenant).read_text(encoding="utf-8") if args.two_tenant else None
+        text = report.build(args.project, report.load_json(args.scan), report.load_json(args.advisors),
+                            report.load_json(args.rlsgrid), two_tenant)
         if args.out:
             Path(args.out).write_text(text, encoding="utf-8")
         else:

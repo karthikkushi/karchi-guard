@@ -67,6 +67,12 @@ class ReportTests(unittest.TestCase):
         self.assertIn("300 of 300 probes skipped", text)
         self.assertNotIn("0 leaks, 0 of", text)
 
+    def test_two_tenant_section_counts_as_checked(self):
+        text = report.build("Demo", SCAN, ADVISORS, None, "| Check | Result |\n|---|---|\n| Other clinic rows | 0 |")
+        self.assertIn("## Two-tenant test\n\n| Check | Result |", text)
+        self.assertNotIn("user A", text.split("## What was not checked")[1])
+        self.assertNotIn("\n\n\n", text)
+
     def test_cli_writes_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             paths = {}
