@@ -1,6 +1,7 @@
 # $49 fix: delivery checklist
 
-Scope: 1 Supabase project, up to about 15 tables, delivered in 48 hours. Anything bigger gets a quote first.
+Scope: 1 Supabase project, up to about 15 tables, delivered in 48 hours.
+Time: the tools run in minutes. The real work is the seed file and reading functions in step 4b: plan 1 to 2 hours. Anything bigger gets a quote first.
 Work only on a local copy. Never connect to the client's live database.
 
 ## 0. Before you start
@@ -43,12 +44,30 @@ Edit `../out/rlsgrid.toml` before running (see `dev/rlsgrid.toml`):
 rlsgrid check --config ../out/rlsgrid.toml --json > ../out/rls.json
 ```
 Exit 1 means leaks were found. If the report says "could not run on most tables", fix the setup and run again.
+Use `check` (it cleans up). Plain `seed` leaves rows behind unless you pass `--state-out` and run `teardown --state`.
+
+## 4b. When rlsgrid skips most probes (most real apps): two-tenant test by hand
+Real schemas have CHECK and NOT NULL rules that rlsgrid's random data breaks (Kalvio Desk: 225 of 300 probes
+skipped, and it still printed "Safe"). Then:
+1. Write a small seed file for the local copy: two tenants, one user each in `auth.users`, the link row
+   (for example `members`), and one valid row in every table for each tenant. Example: Kalvio Desk practice run.
+2. Run the test as user A. It runs in a rolled-back transaction:
+```
+psql "$DATABASE_URL" -v user_a=<uuid> -v tenant_a=<uuid> -v tenant_col=clinic_id -f delivery/two-tenant-test.sql
+```
+   `own_rows` must be above 0 in every table (otherwise the test user is not set up and the test means nothing).
+   `other_tenant_rows` must be 0.
+3. Read the code of every SECURITY DEFINER function that anon can call. For each one that logged-in users can call
+   with an id, call it as user A with tenant B's ids inside `begin; ... rollback;`. It must fail or do nothing.
+   Then call it with tenant A's own ids. It must work (control).
+4. Write the results as a short Markdown table in `out/two-tenant.md`.
 
 ## 5. Report
 ```
 karchi-guard report --scan out/scan.json --advisors out/advisors.json --rlsgrid out/rls.json \
   --project "CLIENT APP" --out out/report.md
 ```
+If you used step 4b, add `--two-tenant out/two-tenant.md` and leave out `--rlsgrid` when its run was not trustworthy.
 Read the whole report. Delete anything that is not true for this app. Check that it shows names only.
 
 ## 6. Fix
