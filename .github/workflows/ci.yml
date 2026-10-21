@@ -1,0 +1,12 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: PYTHONPATH=src python3 -m unittest discover -s tests
+      - name: Run the Action on this repo
+        uses: ./

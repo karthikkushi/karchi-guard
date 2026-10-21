@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karchi Guard: what can your AI agent destroy?</title>
+<meta name="description" content="A free, read-only check for Supabase apps built with AI tools. It finds the keys, MCP servers and settings that give an AI agent too much power.">
+<meta property="og:title" content="Karchi Guard: what can your AI agent destroy?">
+<meta property="og:description" content="Free, read-only check for Supabase apps. Finds the keys, MCP servers and agent settings that give an AI agent too much power.">
+<style>
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --text: #18191b;
+    --muted: #55585e;
+    --line: #dcdcd7;
+    --accent: #b93d0b;
+    --accent-text: #ffffff;
+    --term-bg: #17181a;
+    --term-text: #e4e4e0;
+    --term-muted: #9b9ea3;
+    --term-hot: #ff8a4c;
+    --radius: 10px;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214;
+      --surface: #18191c;
+      --text: #ececea;
+      --muted: #a4a6ab;
+      --line: #2c2e32;
+      --accent: #f2783a;
+      --accent-text: #141414;
+      --term-bg: #0b0c0d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--sans); }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 72px 0; border-top: 1px solid var(--line); }
+  h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); max-width: 22ch; }
+  h3 { font-size: 1.1rem; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .body { max-width: 62ch; margin-top: 14px; color: var(--muted); }
+  code, pre { font-family: var(--mono); font-size: 0.86rem; }
+  :not(pre) > code { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+
+  .btn { display: inline-block; padding: 12px 20px; border-radius: var(--radius); font-weight: 600; text-decoration: none; white-space: nowrap;
+         border: 1px solid var(--text); transition: transform .12s ease, background-color .12s ease; }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn-primary:hover { filter: brightness(1.06); }
+  .btn-ghost:hover { background: var(--surface); }
+  a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  nav .name { font-weight: 700; letter-spacing: -0.01em; text-decoration: none; }
+  nav .links { display: flex; gap: 22px; font-size: 0.95rem; }
+  nav .links a { text-decoration: none; color: var(--muted); }
+  nav .links a:hover { color: var(--text); }
+
+  .hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; padding: 40px 0 80px; }
+  .hero > *, .fix > *, .checks > *, .facts > *, .limits > * { min-width: 0; } /* let wide <pre> scroll instead of widening the page */
+  .hero h1 { font-size: clamp(2.3rem, 5vw, 3.6rem); max-width: 13ch; }
+  .hero .sub { margin-top: 18px; font-size: 1.15rem; color: var(--muted); max-width: 40ch; }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+
+  .term { background: var(--term-bg); color: var(--term-text); border-radius: var(--radius); padding: 22px 22px 18px; overflow-x: auto;
+          line-height: 1.55; margin: 0; box-shadow: 0 20px 50px -24px rgb(17 18 20 / .55); }
+  .term .dim { color: var(--term-muted); }
+  .term .hot { color: var(--term-hot); }
+  .caption { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 36px; }
+  .fact { border-left: 3px solid var(--accent); padding-left: 18px; }
+  .fact p + p { margin-top: 8px; }
+
+  .checks { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0 48px; margin-top: 36px; }
+  .group { padding: 22px 0; border-top: 1px solid var(--line); }
+  .group:nth-child(-n+2) { border-top: 0; padding-top: 0; }
+  .group ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); }
+  .group li + li { margin-top: 6px; }
+  .tag { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); margin-right: 6px; }
+
+  .run pre { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; overflow-x: auto; margin: 10px 0 0; }
+  .run .step + .step { margin-top: 28px; }
+
+  .fix { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: start; margin-top: 32px; }
+  .fix ol { margin: 0; padding-left: 22px; }
+  .fix ol li + li { margin-top: 14px; }
+  .price { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+  .price .amount { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .price ul { margin: 18px 0 24px; padding-left: 18px; color: var(--muted); }
+  .price .alt { margin-top: 14px; font-size: 0.92rem; color: var(--muted); }
+
+  .limits { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 32px; }
+  .limits ul { margin: 12px 0 0; padding-left: 18px; color: var(--muted); }
+  .limits li + li { margin-top: 8px; }
+
+  details { border-top: 1px solid var(--line); padding: 18px 0; max-width: 760px; }
+  details:last-of-type { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { margin-top: 10px; color: var(--muted); max-width: 62ch; }
+
+  footer { border-top: 1px solid var(--line); padding: 32px 0 48px; font-size: 0.9rem; color: var(--muted); }
+  footer .row { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+
+  @media (max-width: 860px) {
+    .wrap { padding: 0 16px; }
+    section { padding: 56px 0; }
+    nav .links a.hide-sm { display: none; }
+    .hero, .facts, .checks, .fix, .limits { grid-template-columns: 1fr; }
+    .hero { gap: 32px; padding-top: 16px; }
+    .group:nth-child(2) { border-top: 1px solid var(--line); padding-top: 22px; }
+    .term { font-size: 0.74rem; padding: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav aria-label="Main">
+    <a class="name" href="#top">Karchi Guard</a>
+    <div class="links">
+      <a class="hide-sm" href="#checks">What it checks</a>
+      <a class="hide-sm" href="#fix">The $49 fix</a>
+      <a href="https://github.com/karthikkushi/karchi-guard">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div>
+      <h1>What can your AI agent destroy?</h1>
+      <p class="sub">A free, read-only check for Supabase apps. It finds the keys, MCP servers and settings that give an agent too much power.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#run">Run the free check</a>
+        <a class="btn btn-ghost" href="#fix">Get it fixed</a>
+      </div>
+    </div>
+    <figure style="margin:0">
+      <pre class="term" aria-label="Example output"><span class="dim">$ karchi-guard scan ./my-app</span>
+
+BLAST RADIUS: an AI agent working here has enough access to:
+  - read every row in every table          <span class="dim">(B1 .env:2)</span>
+  - run any SQL, including DROP TABLE      <span class="dim">(B2 .mcp.json:7)</span>
+  - <span class="hot">delete the whole project, and its backups</span> <span class="dim">(B2 .mcp.json:7)</span>
+  - reach every project in your account    <span class="dim">(B2 .mcp.json:7)</span>
+
+8 findings: <span class="hot">2 CRITICAL</span>, 5 HIGH, 1 MEDIUM
+
+<span class="hot">[CRITICAL]</span> B3 Supabase MCP server 'supabase' is not read-only
+  Fix: add read_only=true to the URL</pre>
+      <figcaption class="caption">Shortened from a real run on a test repo with fake keys. Secret values are never printed.</figcaption>
+    </figure>
+  </header>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>AI tools write the code. Nobody checks what the agent can reach.</h2>
+    <p class="body">Apps built with Lovable, Bolt, Cursor or Claude Code often keep a service key in <code>.env</code>, an MCP server with write access, and no backup outside Supabase. An agent that goes wrong can use all of it.</p>
+    <div class="facts">
+      <div class="fact">
+        <h3>An agent deleted production in 9 seconds.</h3>
+        <p class="muted">In April 2026 a Cursor agent deleted a production data volume and its backups, using a token it found in an unrelated file.</p>
+        <p><a class="muted" href="https://oecd.ai/en/incidents/2026-04-27-6153">Incident report (OECD)</a></p>
+      </div>
+      <div class="fact">
+        <h3>Deleting a Supabase project deletes its backups.</h3>
+        <p class="muted">A token that can delete your project can also take your backups with it. A copy outside Supabase is the only safe copy.</p>
+        <p><a class="muted" href="https://supabase.com/docs/guides/platform/delete-project">Supabase docs</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="checks">
+  <div class="wrap">
+    <h2>What the free check looks at</h2>
+    <p class="body">It reads files in your repo, and with <code>--home</code> your agent configs too. No network, no database, no account.</p>
+    <div class="checks">
+      <div class="group">
+        <h3><span class="tag">B1 B2</span>Keys an agent can read</h3>
+        <ul>
+          <li><code>service_role</code> and <code>sb_secret_</code> keys in files, <code>.env</code> and your built frontend</li>
+          <li>Keys in <code>VITE_</code> or <code>NEXT_PUBLIC_</code> variables, which ship to every visitor</li>
+          <li>Supabase access tokens and database passwords</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="tag">B3 B4</span>Supabase MCP server</h3>
+        <ul>
+          <li>Not read-only, so the agent can change data and drop tables</li>
+          <li>Not limited to one project, so it reaches your whole account</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="tag">B6</span>Claude Code rules</h3>
+        <ul>
+          <li>Would it stop <code>supabase db reset --linked</code>, <code>supabase projects delete</code> or <code>drop table</code>?</li>
+          <li>Can it read <code>.env</code> without asking?</li>
+          <li>Is it in <code>bypassPermissions</code> mode?</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="tag">B7</span>Backups</h3>
+        <ul>
+          <li>Is there a dump job that stores a copy outside Supabase?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="run" class="run">
+  <div class="wrap">
+    <h2>Run it in one minute</h2>
+    <p class="body">Python 3.11 or newer. Nothing else to install. It exits with code 1 on any critical finding, so it can fail a CI job.</p>
+    <div class="step">
+      <h3>On your machine</h3>
+      <pre>git clone https://github.com/karthikkushi/karchi-guard
+cd karchi-guard
+PYTHONPATH=src python3 -m karchi_guard scan /path/to/your/app</pre>
+    </div>
+    <div class="step">
+      <h3>In GitHub Actions</h3>
+      <pre>- uses: actions/checkout@v4
+- uses: karthikkushi/karchi-guard@v0</pre>
+    </div>
+  </div>
+</section>
+
+<section id="fix">
+  <div class="wrap">
+    <h2>Rather not fix it yourself?</h2>
+    <p class="body">I run three checks on a local copy of your schema, write a plain-English report, and send the fix as a pull request.</p>
+    <div class="fix">
+      <ol>
+        <li><strong>You give written permission</strong> and share the repo. I never connect to your live database.</li>
+        <li><strong>I build a local copy</strong> from your migrations and run Karchi Guard, the Supabase Security Advisor, and a user A vs user B test with <a href="https://github.com/matte97p/rlsgrid">rlsgrid</a>.</li>
+        <li><strong>You get a report</strong> that says what is wrong, why it matters and how bad it is. Table and column names only, never your data.</li>
+        <li><strong>You get a pull request</strong> with the RLS migration and safer agent settings, plus a before and after check. You decide whether to merge.</li>
+      </ol>
+      <div class="price">
+        <div class="amount">$49</div>
+        <p class="muted">One Supabase project, up to about 15 tables. Delivered in 48 hours.</p>
+        <ul>
+          <li>Report with fix SQL</li>
+          <li>Pull request with the fixes</li>
+          <li>Re-check after the fix</li>
+        </ul>
+        <a class="btn btn-primary" href="mailto:REPLACE_EMAIL?subject=Supabase%20fix%20request">Request a fix</a>
+        <p class="alt">Prefer Fiverr? <a href="REPLACE_FIVERR_URL">Order the same fix there.</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Honest limits</h2>
+    <div class="limits">
+      <div>
+        <h3>I never</h3>
+        <ul>
+          <li>Scan or test an app without the owner's written permission</li>
+          <li>Connect to your live database or copy user data</li>
+          <li>Upload your code or keys anywhere. The free check runs on your machine</li>
+          <li>Call an app "100% secure"</li>
+        </ul>
+      </div>
+      <div>
+        <h3>The free check does not cover</h3>
+        <ul>
+          <li>RLS policies. Run <code>supabase db advisors --type security</code></li>
+          <li>Whether user A can read user B's rows. The $49 fix tests this</li>
+          <li>Keys in old git commits. Run gitleaks</li>
+          <li>Cursor and Windsurf command allowlists</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Questions</h2>
+    <div style="margin-top:24px">
+      <details>
+        <summary>Do you need my Supabase keys?</summary>
+        <p>No. The free check reads files on your machine. For the $49 fix I only need the repo, or a schema-only dump with no data. Keys that leaked should be rotated by you, in your own dashboard.</p>
+      </details>
+      <details>
+        <summary>Supabase already has a Security Advisor. Why do I need this?</summary>
+        <p>Use the Advisor; the fix includes it. It checks your database rules. It does not check what your AI agent can reach. In our test app it also missed a policy that let any logged-in user read every order. The user A vs user B test caught it.</p>
+      </details>
+      <details>
+        <summary>Is this made by Supabase, Lovable or Anthropic?</summary>
+        <p>No. Karchi Guard is an independent open-source project (MIT license) by Karthik, a developer in India.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <span>Karchi Guard. MIT license. Not affiliated with Supabase, Lovable, Cursor or Anthropic.</span>
+    <a href="https://github.com/karthikkushi/karchi-guard">Source on GitHub</a>
+  </div>
+</footer>
+</body>
+</html>
