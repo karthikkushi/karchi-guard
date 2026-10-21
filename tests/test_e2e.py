@@ -68,6 +68,27 @@ class EndToEnd(unittest.TestCase):
             capture_output=True, text=True, check=True).stdout.strip()
         self.assertEqual(counts, "0")
 
+    def test_two_tenant_sql_finds_the_planted_leaks(self):
+        a, b = "aaaaaaaa-0000-0000-0000-000000000001", "bbbbbbbb-0000-0000-0000-000000000001"
+        seed = (f"begin;\ninsert into auth.users (id, email) values ('{a}', 'a@test.local'), ('{b}', 'b@test.local');\n"
+                + "".join(f"insert into public.{t} (user_id, {col}) values ('{a}', {v}), ('{b}', {v});\n"
+                          for t, col, v in (("notes", "body", "'x'"), ("orders", "total_cents", "100"),
+                                            ("messages", "body", "'x'"))))
+        # The test file's own rollback also removes the seed, so nothing is left behind.
+        out = subprocess.run(
+            ["docker", "exec", "-i", "supabase_db_guard-dev", "psql", "-U", "postgres", "-tA", "-F", "|",
+             "-v", f"user_a={a}", "-v", f"tenant_a={a}", "-v", "tenant_col=user_id"],
+            input=seed + (ROOT / "delivery/two-tenant-test.sql").read_text(), capture_output=True, text=True, check=True).stdout
+        rows = {tuple(line.split("|")) for line in out.splitlines() if line.count("|") >= 1}
+        # Section 1 (table|own|other): leaks on notes and orders, none on messages; own rows prove the setup.
+        self.assertTrue({("notes", "1", "1"), ("orders", "1", "1"), ("messages", "1", "0")} <= rows)
+        # Section 2 (table|visible to anon): notes is readable by anyone. Section 3: all_phones() is callable by anon.
+        self.assertIn(("notes", "2"), rows)
+        self.assertIn(("all_phones()", "t", "t"), rows)
+        left = subprocess.run(["docker", "exec", "supabase_db_guard-dev", "psql", "-U", "postgres", "-tAc",
+                               "select count(*) from auth.users"], capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(left, "0")
+
 
 if __name__ == "__main__":
     unittest.main()

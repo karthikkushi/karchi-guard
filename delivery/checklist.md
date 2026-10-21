@@ -1,7 +1,7 @@
 # $49 fix: delivery checklist
 
 Scope: 1 Supabase project, up to about 15 tables, delivered in 48 hours.
-Time: the tools run in minutes. The real work is the seed file and reading functions in step 4b: plan 1 to 2 hours. Anything bigger gets a quote first.
+Time: the tools run in minutes. The real work is the seed file and reading functions in step 4b: plan 2 to 3 hours. Anything bigger gets a quote first.
 Work only on a local copy. Never connect to the client's live database.
 
 ## 0. Before you start

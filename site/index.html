@@ -243,7 +243,7 @@ PYTHONPATH=src python3 -m karchi_guard scan /path/to/your/app</pre>
     <div class="fix">
       <ol>
         <li><strong>You give written permission</strong> and share the repo. I never connect to your live database.</li>
-        <li><strong>I build a local copy</strong> from your migrations and run Karchi Guard, the Supabase Security Advisor, and a user A vs user B test with <a href="https://github.com/matte97p/rlsgrid">rlsgrid</a>.</li>
+        <li><strong>I build a local copy</strong> from your migrations and run Karchi Guard, the Supabase Security Advisor, and a user A vs user B test with real test accounts. I also read every database function that skips RLS.</li>
         <li><strong>You get a report</strong> that says what is wrong, why it matters and how bad it is. Table and column names only, never your data. <a href="https://github.com/karthikkushi/karchi-guard/blob/main/docs/sample-report.md">See a sample report</a>.</li>
         <li><strong>You get a pull request</strong> with the RLS migration and safer agent settings, plus a before and after check. You decide whether to merge.</li>
       </ol>
@@ -252,6 +252,7 @@ PYTHONPATH=src python3 -m karchi_guard scan /path/to/your/app</pre>
         <p class="muted">One Supabase project, up to about 15 tables. Delivered in 48 hours.</p>
         <ul>
           <li>Report with fix SQL</li>
+          <li>User A vs user B leak test</li>
           <li>Pull request with the fixes</li>
           <li>Re-check after the fix</li>
         </ul>
