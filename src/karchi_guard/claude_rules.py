@@ -102,6 +102,10 @@ def decide(settings: Settings, tool: str, text: str = "") -> tuple[str, str]:
         return RUNS, f"allowed without asking by {matched['allow']}"
     if tool == "Read":
         return RUNS, "Claude Code reads files without asking by default"
+    if settings.mode == "auto":
+        return UNKNOWN, "defaultMode is auto, so a classifier decides instead of you"
+    if settings.mode == "dontAsk":
+        return BLOCKED, "defaultMode is dontAsk, which denies anything that would ask"
     return ASKS, "Claude Code asks you first"
 
 

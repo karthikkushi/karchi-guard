@@ -142,6 +142,11 @@ class ClaudeTests(unittest.TestCase):
         findings = only(run({".claude/settings.json": settings}), "B6")
         self.assertTrue(findings and all(f.severity == MEDIUM for f in findings))
 
+    def test_auto_mode_is_unknown_and_dont_ask_is_blocked(self):
+        auto = only(run({".claude/settings.json": {"permissions": {"defaultMode": "auto"}}}), "B6")
+        self.assertEqual([f.severity for f in auto], [MEDIUM] * 3)
+        self.assertEqual(only(run({".claude/settings.json": {"permissions": {"defaultMode": "dontAsk"}}}), "B6"), [])
+
     def test_no_claude_settings_no_b6(self):
         self.assertEqual(only(run({".env": f"KEY={SERVICE}\n"}), "B6"), [])
 
