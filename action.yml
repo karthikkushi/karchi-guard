@@ -1,0 +1,16 @@
+name: Karchi Guard
+description: What can an AI agent in your Supabase repo read or destroy? Fails on CRITICAL findings.
+branding:
+  icon: shield
+  color: green
+inputs:
+  folder:
+    description: Folder to scan
+    default: "."
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        FOLDER: ${{ inputs.folder }}
+      run: PYTHONPATH="$GITHUB_ACTION_PATH/src" python3 -m karchi_guard scan "$FOLDER"

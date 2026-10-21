@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "karchi-guard"
+version = "0.1.0"
+description = "What can an AI agent in your Supabase repo read or destroy? A read-only blast-radius check."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+karchi-guard = "karchi_guard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+karchi_guard = ["report.md"]
