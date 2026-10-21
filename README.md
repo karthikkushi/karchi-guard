@@ -72,6 +72,7 @@ A clean result means none of the problems above were found. It does not mean the
 1. [Your AI agent can read your Supabase service key. Here is how to stop it.](docs/guides/01-agent-can-read-your-service-key.md)
 2. [Make your Supabase MCP server read-only](docs/guides/02-make-supabase-mcp-read-only.md)
 3. [The RLS leak the Security Advisor missed in my test](docs/guides/03-logged-in-users-can-read-every-row.md)
+4. [Supabase's 30 Oct 2026 change: "permission denied for table" and the one-line fix that leaks your data](docs/guides/04-oct-30-permission-denied-for-table.md)
 
 ## One report from three tools
 
