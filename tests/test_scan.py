@@ -157,6 +157,15 @@ class BackupAndOutputTests(unittest.TestCase):
         job = {".github/workflows/backup.yml": "run: supabase db dump -f backup.sql\n"}
         self.assertEqual(only(run(job), "B7"), [])
 
+    def test_supabase_used_by_plain_http_still_counts(self):
+        # Apps often call Supabase with fetch/httpx, with no supabase/ folder and no package.
+        for name, text in (("worker/sync.py", "URL = 'https://abcdefghijklmnopqrst.supabase.co/rest/v1/shops'\n"),
+                           ("caller/config.js", "export const api = process.env.SUPABASE_URL;\n")):
+            with tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / name).parent.mkdir(parents=True)
+                (Path(tmp) / name).write_text(text)
+                self.assertEqual([f.check for f in scan.scan(Path(tmp))], ["B7"], name)
+
     def test_not_a_supabase_repo_gives_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "app.py").write_text("print('hi')\n")

@@ -51,6 +51,7 @@ LOCAL_SECRET_KEY = "sb_" + "secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz"
 _ACCESS_TOKEN = re.compile(r"\bsbp_\w{20,}")
 _DB_URL = re.compile(r"postgres(?:ql)?://[^\s:/@'\"]+:([^\s@'\"]+)@([^\s/:'\"?]+)")
 _BACKUP = re.compile(r"pg_dump|supabase db dump|wal-g|pgbackrest")
+_USES_SUPABASE = re.compile(r"[a-z0-9]{20}\.supabase\.co|\bSUPABASE_URL\b")
 
 # Dangerous steps checked against Claude Code permission rules (B6):
 # (tool, input, what it does, effect, rule that stops it, where the rule goes)
@@ -111,7 +112,8 @@ def scan(folder: Path, *, home: Path | None = None) -> list[Finding]:
 
     is_supabase = (folder / "supabase").is_dir() or findings or any(
         "supabase" in f.text.lower() for f in files
-        if Path(f.label).name in ("package.json", "requirements.txt", "pyproject.toml"))
+        if Path(f.label).name in ("package.json", "requirements.txt", "pyproject.toml")) or any(
+        _USES_SUPABASE.search(f.text) for f in files if not f.label.startswith("~"))  # plain fetch/httpx calls
     if not is_supabase:
         return []
     if uses_claude:
