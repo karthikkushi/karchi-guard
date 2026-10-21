@@ -40,7 +40,7 @@ It exits with code 1 when it finds anything CRITICAL, so it can fail a CI job.
 ## One report from three tools
 
 ```
-karchi-guard report --scan scan.json --advisors advisors.json --rlsgrid rls.sarif --project "My App" --out report.md
+karchi-guard report --scan scan.json --advisors advisors.json --rlsgrid rls.json --project "My App" --out report.md
 ```
 
 This combines the scan, Supabase Security Advisor and rlsgrid results into one plain-English Markdown report with fix SQL. The report contains names only, never row data.
@@ -49,6 +49,13 @@ This combines the scan, Supabase Security Advisor and rlsgrid results into one p
 
 ```
 PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+End-to-end on a deliberately unsafe local Supabase (needs Docker, the Supabase CLI and rlsgrid in `.venv`):
+
+```
+cd dev && supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor && cd ..
+GUARD_E2E=1 PYTHONPATH=src:tests python3 -m unittest tests/test_e2e.py   # writes out/e2e-report.md
 ```
 
 MIT license. B6 reuses the rule matcher from [Rogue Drill](https://github.com/karthikkushi/nova-harbor).

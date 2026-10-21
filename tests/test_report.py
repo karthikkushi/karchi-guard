@@ -19,13 +19,14 @@ ADVISORS = [
     {"name": "unindexed_foreign_keys", "title": "Unindexed foreign keys", "level": "INFO", "facing": "EXTERNAL",
      "categories": ["PERFORMANCE"], "description": "perf", "detail": "perf", "remediation": "", "cacheKey": "z"},
 ]
-SARIF = {"version": "2.1.0", "runs": [{"results": [
-    {"ruleId": "cross-tenant-leak", "level": "error",
-     "message": {"text": "authenticated (tenant a1) reached tenant b2's rows: row {'id': 7, 'email': 'priya@example.com'}"},
-     "partialFingerprints": {"rlsgrid/leak": "authenticated:public.orders:select"}},
-    {"ruleId": "cross-tenant-leak", "level": "error", "message": {"text": "duplicate"},
-     "partialFingerprints": {"rlsgrid/leak": "authenticated:public.orders:select"}},
-]}]}
+RLS = {"ok": False, "iterations": 300, "skipped": 20, "skip_reasons": {"no target row on this table": 20}, "no_probes": False,
+       "breaches": [
+           {"actor_role": "authenticated", "actor_tenant": "a1", "target_tenant": "b2", "schema": "public", "table": "orders",
+            "operation": "SELECT", "detail": "row {'id': 7, 'email': 'priya@example.com'}"},
+           {"actor_role": "authenticated", "actor_tenant": "a2", "target_tenant": "b1", "schema": "public", "table": "orders",
+            "operation": "select", "detail": "duplicate"}]}
+UNTESTED = {"ok": True, "iterations": 300, "skipped": 300, "skip_reasons": {"probe raised a database error": 150},
+            "no_probes": False, "breaches": []}
 SCAN = {"blast_radius": [{"effect": "read every row in every table", "source": "B1 .env:1"}],
         "findings": [{"check": "B1", "severity": "HIGH", "title": "Supabase service_role / secret key", "where": ".env:1",
                       "why": "This key skips every RLS rule.", "fix": "Rotate the key.", "effects": ["read"]}],
@@ -35,12 +36,12 @@ SCAN = {"blast_radius": [{"effect": "read every row in every table", "source": "
 
 class ReportTests(unittest.TestCase):
     def setUp(self):
-        self.text = report.build("Demo App", SCAN, ADVISORS, SARIF)
+        self.text = report.build("Demo App", SCAN, ADVISORS, RLS)
 
     def test_names_and_fix_sql_appear(self):
         self.assertIn("# Supabase safety report: Demo App", self.text)
         self.assertIn("alter table public.profiles enable row level security;", self.text)
-        self.assertIn("A logged-in user can select other users' rows", self.text)
+        self.assertIn("A logged-in user can read other users' rows", self.text)
         self.assertIn("read every row in every table (B1 .env:1)", self.text)
         self.assertIn("See https://example.invalid/fix", self.text)
 
@@ -59,10 +60,17 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("user A", not_checked)
         self.assertIn("gitleaks", not_checked)
 
+    def test_cli_results_wrapper_and_untested_rlsgrid(self):
+        text = report.build("Demo", None, {"results": ADVISORS, "message": ""}, UNTESTED)
+        self.assertIn("alter table public.profiles enable row level security;", text)
+        self.assertIn("The cross-user test could not run on most tables", text)
+        self.assertIn("300 of 300 probes skipped", text)
+        self.assertNotIn("0 leaks, 0 of", text)
+
     def test_cli_writes_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             paths = {}
-            for name, data in (("scan", SCAN), ("advisors", ADVISORS), ("rlsgrid", SARIF)):
+            for name, data in (("scan", SCAN), ("advisors", ADVISORS), ("rlsgrid", RLS)):
                 paths[name] = Path(tmp, name + ".json")
                 paths[name].write_text(json.dumps(data))
             out = Path(tmp, "report.md")

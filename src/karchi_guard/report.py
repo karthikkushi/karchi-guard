@@ -2,7 +2,7 @@
 
 - the Karchi Guard scan (`karchi-guard scan --json`)
 - Supabase Security Advisor (`supabase db advisors --type security --output-format json`)
-- rlsgrid cross-user test (`rlsgrid check --sarif-out rls.sarif`), run on a local copy only
+- rlsgrid cross-user test (`rlsgrid check --json > rls.json`), run on a local copy only
 
 Only names (tables, columns, files) reach the report, never row data.
 """
@@ -42,12 +42,17 @@ ADVISOR_FIXES = {
     "authenticated_security_definer_function_executable": (
         "Any logged-in user can call this function, and it runs with the owner's rights, skipping RLS.",
         "-- Only if normal users should not call it:\nrevoke execute on function {t} from public, authenticated;"),
+    "rls_policy_always_true": (
+        "This policy's check is always true, so anyone it applies to can {command} any row.",
+        "drop policy \"{policy_name}\" on {t};\n"
+        "create policy \"{policy_name}\" on {t} for {command} to authenticated\n"
+        "  {clause} ((select auth.uid()) = user_id);  -- check the owner column name"),
     "auth_users_exposed": (
         "User emails and other account data from auth.users can be read through the API.",
         "revoke select on {t} from anon, authenticated;"),
 }
 
-RLSGRID_OPS = {"read": "select", "select": "select", "insert": "insert", "update": "update", "delete": "delete"}
+RLSGRID_VERBS = {"select": "read", "insert": "add", "update": "change", "delete": "delete"}
 
 
 @dataclass
@@ -62,8 +67,8 @@ class Item:
     sql: bool = False
 
 
-def build(project: str, scan: dict | None, advisors: list | None, sarif: dict | None) -> str:
-    items = _from_scan(scan) + _from_advisors(advisors) + _from_rlsgrid(sarif)
+def build(project: str, scan: dict | None, advisors: list | None, rls: dict | None) -> str:
+    items = _from_scan(scan) + _from_advisors(advisors) + _from_rlsgrid(rls)
     items.sort(key=lambda i: (RANK[i.severity], i.source, i.where))
     counts = Counter(i.severity for i in items)
 
@@ -82,9 +87,12 @@ def build(project: str, scan: dict | None, advisors: list | None, sarif: dict | 
     if advisors is not None:
         checked.append(f"Supabase Security Advisor, security lints: {len(_from_advisors(advisors))} findings")
         not_checked = [n for n in not_checked if not n.startswith("RLS rules")]
-    if sarif is not None:
-        checked.append(f"rlsgrid cross-user test on a local copy of the database: {len(_from_rlsgrid(sarif))} leaks")
-        not_checked = [n for n in not_checked if not n.startswith("Whether user A")]
+    if rls is not None:
+        leaks = len({_leak(b) for b in rls.get("breaches", [])})
+        checked.append(f"rlsgrid cross-user test on a local copy of the database: {leaks} leaks, "
+                       f"{rls.get('skipped', 0)} of {rls.get('iterations', 0)} probes skipped")
+        if not _untested(rls):
+            not_checked = [n for n in not_checked if not n.startswith("Whether user A")]
 
     template = Template((Path(__file__).with_name("report.md")).read_text(encoding="utf-8"))
     return template.safe_substitute(
@@ -102,41 +110,64 @@ def _from_scan(scan: dict | None) -> list[Item]:
 
 
 def _from_advisors(advisors) -> list[Item]:
-    lints = advisors.get("lints", []) if isinstance(advisors, dict) else advisors or []
+    # The CLI prints {"results": [...]}; the Management API uses {"lints": [...]}.
+    lints = (advisors.get("results") or advisors.get("lints") or []) if isinstance(advisors, dict) else advisors or []
     items = []
     for lint in lints:
         if "SECURITY" not in (lint.get("categories") or ["SECURITY"]):
             continue
         meta = lint.get("metadata") or {}
         target = ".".join(p for p in (meta.get("schema"), meta.get("name")) if p) or lint.get("name", "?")
-        why, sql = ADVISOR_FIXES.get(lint.get("name"), (lint.get("description", ""), ""))
-        fix = sql.format(t=target) if sql else f"See {lint.get('remediation', 'the Supabase docs')}"
+        command = str(meta.get("command") or "all").lower()
+        fields = _Fields(meta, t=target, command=command, clause="with check" if command == "insert" else "using")
+        known = ADVISOR_FIXES.get(lint.get("name"))
+        why = known[0].format_map(fields) if known else lint.get("description", "")
+        fix = known[1].format_map(fields) if known else f"See {lint.get('remediation', 'the Supabase docs')}"
         items.append(Item(ADVISOR_LEVEL.get(str(lint.get("level")).upper(), "MEDIUM"), "Advisor",
-                          lint.get("title", lint.get("name", "?")), target, lint.get("detail", ""), why, fix, bool(sql)))
+                          lint.get("title", lint.get("name", "?")), target, lint.get("detail", ""), why, fix, bool(known)))
     return items
 
 
-def _from_rlsgrid(sarif: dict | None) -> list[Item]:
-    leaks = set()
-    for run in (sarif or {}).get("runs", []):
-        for result in run.get("results", []):
-            # Use only the fingerprint (role:schema.table:operation), never the message, which can hold row ids.
-            role, table, op = result.get("partialFingerprints", {}).get("rlsgrid/leak", "?:?:?").split(":", 2)
-            leaks.add((role, table, op))
+def _from_rlsgrid(rls: dict | None) -> list[Item]:
     items = []
-    for role, table, op in sorted(leaks):
+    for role, table, op in sorted({_leak(b) for b in (rls or {}).get("breaches", [])}):
         who = "A logged-out visitor" if role == "anon" else "A logged-in user"
-        sql_op = RLSGRID_OPS.get(op, op)
+        sql_op = "select" if op == "read" else op
+        verb = RLSGRID_VERBS.get(sql_op, op)
         clause = "with check" if sql_op == "insert" else "using"
         items.append(Item(
-            "CRITICAL" if role == "anon" else "HIGH", "rlsgrid", f"{who} can {op} other users' rows", table,
-            f"rlsgrid made test users on a local copy. {who} ({role}) could {op} rows that belong to another user.",
+            "CRITICAL" if role == "anon" else "HIGH", "rlsgrid", f"{who} can {verb} other users' rows", table,
+            f"rlsgrid made test users on a local copy. {who} ({role}) could {verb} rows that belong to another user.",
             "One user can see or change another user's private data.",
             f"-- Find the {sql_op} policy on {table} that allows this, then tie it to the row owner:\n"
             f"drop policy \"<policy name>\" on {table};\n"
             f"create policy \"own rows only\" on {table} for {sql_op} to authenticated\n"
             f"  {clause} ((select auth.uid()) = user_id);", True))
+    if rls and _untested(rls):
+        reasons = "; ".join(f"{reason} ({count})" for reason, count in rls.get("skip_reasons", {}).items())
+        items.append(Item(
+            "MEDIUM", "rlsgrid", "The cross-user test could not run on most tables", "rlsgrid",
+            f"{rls.get('skipped', 0)} of {rls.get('iterations', 0)} probes were skipped: {reasons or 'no reason given'}.",
+            "Leaks between users may be hidden. Do not read this as safe.",
+            "Fix the rlsgrid setup (owner column, test rows) and run it again, or test these tables by hand with two test users."))
     return items
+
+
+def _leak(breach: dict) -> tuple[str, str, str]:
+    # Only role, table and operation. Never "detail", which can hold row ids.
+    return breach.get("actor_role", "?"), f"{breach.get('schema', '?')}.{breach.get('table', '?')}", str(breach.get("operation", "?")).lower()
+
+
+def _untested(rls: dict) -> bool:
+    # ponytail: half the probes skipped = untrustworthy; tune if real projects need a finer rule
+    return bool(rls.get("no_probes")) or rls.get("skipped", 0) * 2 >= max(rls.get("iterations", 0), 1)
+
+
+class _Fields(dict):
+    """Template fields from lint metadata; a missing one shows as <name> instead of crashing."""
+
+    def __missing__(self, key):
+        return f"<{key}>"
 
 
 def _detail(n: int, i: Item) -> str:

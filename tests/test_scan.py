@@ -75,7 +75,7 @@ class SecretTests(unittest.TestCase):
 
     def test_public_keys_and_local_demo_keys_are_ignored(self):
         files = {".env": f"VITE_SUPABASE_ANON_KEY={ANON}\nKEY=sb_publishable_abcdefghijklmnopqrstuv\n"
-                         f"LOCAL={fake_jwt('service_role', iss='supabase-demo')}\n"}
+                         f"LOCAL={fake_jwt('service_role', iss='supabase-demo')}\nLOCAL2={scan.LOCAL_SECRET_KEY}\n"}
         self.assertEqual(only(run(files), "B1"), [])
 
     def test_access_token_is_always_critical(self):

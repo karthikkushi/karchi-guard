@@ -46,6 +46,8 @@ HOME_FILES = (".claude.json", ".claude/settings.json", ".cursor/mcp.json", ".cod
 
 _JWT = re.compile(r"eyJ[\w-]{10,}\.eyJ[\w-]{10,}\.[\w-]{10,}")
 _SECRET_KEY = re.compile(r"\bsb_secret_[\w-]{20,}")
+# The local-only key every `supabase start` prints; it is public and the same on every machine.
+LOCAL_SECRET_KEY = "sb_" + "secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz"
 _ACCESS_TOKEN = re.compile(r"\bsbp_\w{20,}")
 _DB_URL = re.compile(r"postgres(?:ql)?://[^\s:/@'\"]+:([^\s@'\"]+)@([^\s/:'\"?]+)")
 _BACKUP = re.compile(r"pg_dump|supabase db dump|wal-g|pgbackrest")
@@ -133,7 +135,8 @@ def _secrets(f: _File) -> list[Finding]:
         if not any(s in line for s in ("eyJ", "sb_secret_", "sbp_", "postgres")):
             continue
         kinds = []
-        if _SECRET_KEY.search(line) or any(_jwt_role(t) == "service_role" for t in _JWT.findall(line)):
+        if any(k != LOCAL_SECRET_KEY for k in _SECRET_KEY.findall(line)) or any(
+                _jwt_role(t) == "service_role" for t in _JWT.findall(line)):
             kinds.append("service")
         if _ACCESS_TOKEN.search(line):
             kinds.append("token")

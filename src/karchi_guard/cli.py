@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     r = commands.add_parser("report", help="one Markdown report from scan, Supabase Advisor and rlsgrid results")
     r.add_argument("--scan", help="output of: karchi-guard scan --json")
     r.add_argument("--advisors", help="output of: supabase db advisors --type security --output-format json")
-    r.add_argument("--rlsgrid", help="output of: rlsgrid check --sarif-out FILE (run on a local copy only)")
+    r.add_argument("--rlsgrid", help="output of: rlsgrid check --json (run on a local copy only)")
     r.add_argument("--project", default="your project", help="name shown at the top of the report")
     r.add_argument("--out", help="write the report here instead of printing it")
 
