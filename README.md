@@ -84,7 +84,7 @@ This combines the scan, the Supabase Security Advisor (`supabase db advisors --t
 
 ## Want it fixed for you?
 
-I offer a fixed-price fix: $49 for one Supabase project. I work on a local copy of your schema (never your live database), send a report and a pull request with the fixes, and re-check after. [See a sample report](docs/sample-report.md). Details: REPLACE_SITE_URL
+I offer a fixed-price fix: $49 for one Supabase project. I work on a local copy of your schema (never your live database), send a report and a pull request with the fixes, and re-check after. [See a sample report](docs/sample-report.md). Write to karchiguard@gmail.com
 
 ## Tests
 
