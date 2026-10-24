@@ -84,7 +84,7 @@ This combines the scan, the Supabase Security Advisor (`supabase db advisors --t
 
 ## Want it fixed for you?
 
-I offer a fixed-price fix: $49 for one Supabase project. I work on a local copy of your schema (never your live database), send a report and a pull request with the fixes, and re-check after. [See a sample report](docs/sample-report.md). Details: https://karchi-guard.pages.dev (or write to karchiguard@gmail.com)
+I offer a fixed-price fix: $49 for one Supabase project. I work on a local copy of your schema (never your live database), send a report and a pull request with the fixes, and re-check after. [See a sample report](docs/sample-report.md). Details: https://karchi-guard.pages.dev (or write to karchiguard@gmail.com, or [order on Fiverr](https://www.fiverr.com/karthikein_kush/find-and-fix-supabase-data-leaks-in-your-lovable-or-cursor-app))
 
 ## Tests
 
